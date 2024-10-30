@@ -69,8 +69,8 @@ export const remove = internalMutation({
         q.eq("user", user).eq("directMessage", directMessage)
       )
       .unique();
-    if (existing && (!expiresAt || existing.expiresAt === expiresAt)) {
-      await ctx.db.delete(existing._id);
+    if (existing && (!expiresAt || existing.expiresAt === expiresAt) || (directMessage.length !== 0)) {
+      await ctx.db.delete(existing!._id);
     }
   },
 });

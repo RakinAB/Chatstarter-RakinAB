@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { use, useState } from "react";
+import { use, useRef, useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -13,10 +13,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVerticalIcon, SendHorizonalIcon, Trash2Icon } from "lucide-react";
+import {
+  Loader2,
+  MoreVerticalIcon,
+  PlusCircleIcon,
+  SendHorizonalIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import Image from "next/image";
 
 function MessageItem({ message }: { message: Message }) {
   return (
@@ -30,6 +37,15 @@ function MessageItem({ message }: { message: Message }) {
           {message.sender?.username ?? "Deleted User"}
         </p>
         <p className="text-sm">{message.content}</p>
+        {message.attachment && (
+          <Image
+            src={message.attachment}
+            width={300}
+            height={300}
+            alt="Attatchment"
+            className="rounded-border overflow-hidden"
+          />
+        )}
       </div>
       <MessageActions message={message} />
     </div>
@@ -71,12 +87,37 @@ function MessageInput({
   const [content, setContent] = useState("");
   const sendMessage = useMutation(api.functions.message.create);
   const sendTypingIndicator = useMutation(api.functions.typing.upsert);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File>();
+  const [isUploading, setIsUploading] = useState(false);
+  const generateUploadURL = useMutation(
+    api.functions.message.generateUploadURL
+  );
+  const [attachment, setAttachment] = useState<Id<"_storage">>();
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setFile(file);
+    setIsUploading(true);
+    const url = await generateUploadURL();
+    const res = await fetch(url, {
+      method: "POST",
+      body: file,
+    });
+    const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+    setAttachment(storageId);
+    setIsUploading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await sendMessage({ directMessage, content });
+      await sendMessage({ directMessage, attachment, content });
       setContent("");
+      setAttachment(undefined);
+      setFile(undefined)
     } catch (error) {
       toast.error("Failed to send DM", {
         description:
@@ -85,22 +126,69 @@ function MessageInput({
     }
   };
   return (
-    <form className="flex items-center p-4 gap-2" onSubmit={handleSubmit}>
-      <Input
-        placeholder="Message..."
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        onKeyDown={(e) => {
-          if (content.length > 0) {
-            sendTypingIndicator({ directMessage });
-          }
-        }}
+    <>
+      <form className="flex items-end p-4 gap-2" onSubmit={handleSubmit}>
+        <div className="flex flex-col flex-1 gap-2" >
+          {file && <ImagePreview file={file} isUploading={isUploading} />}
+          <Input
+            placeholder="Message..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (content.length > 0) {
+                sendTypingIndicator({ directMessage });
+              }
+            }}
+          />
+        </div>
+        <Button
+          type="button"
+          size="icon"
+          onClick={() => {
+            fileInputRef.current?.click();
+          }}
+        >
+          <PlusCircleIcon />
+          <span className="sr-only"></span>
+        </Button>
+
+        <Button size="icon">
+          <SendHorizonalIcon />
+          <span className="sr-only">Send DM</span>
+        </Button>
+      </form>
+      <input
+        type="file"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleImageUpload}
       />
-      <Button size="icon">
-        <SendHorizonalIcon />
-        <span className="sr-only">Send DM</span>
-      </Button>
-    </form>
+    </>
+  );
+}
+
+function ImagePreview({
+  file,
+  isUploading,
+}: {
+  file: File;
+  isUploading: boolean;
+}) {
+  return (
+    <div className="relative">
+      <Image
+        src={URL.createObjectURL(file)}
+        width={300}
+        height={300}
+        alt="Attatchment"
+        className="rounded border overflow-hidden"
+      />
+      {isUploading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+          <Loader2 className="animate-spin size-8" />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -110,15 +198,14 @@ function TypingIndicator({
   directMessage: Id<"directMessages">;
 }) {
   const usernames = useQuery(api.functions.typing.list, { directMessage });
-  if (!usernames || usernames.length === 0) {
+  if (!usernames || usernames.length === 0 ) {
     return null;
-  
   }
   return (
     <div className="text-sm text-muted-foreground px-4 py-2">
       {usernames.join(", ")} typing...
     </div>
-  )
+  );
 }
 
 type Message = FunctionReturnType<typeof api.functions.message.list>[number];
@@ -150,7 +237,7 @@ export default function MessagePage({
           <MessageItem key={message._id} message={message} />
         ))}
       </ScrollArea>
-      <TypingIndicator directMessage={id}/>
+      <TypingIndicator directMessage={id} />
       <MessageInput directMessage={id} />
     </div>
   );
