@@ -18,8 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-type Message = FunctionReturnType<typeof api.functions.message.list>[number];
-
 function MessageItem({ message }: { message: Message }) {
   return (
     <div className="flex items-center px-4 gap-2 py-2">
@@ -40,7 +38,7 @@ function MessageItem({ message }: { message: Message }) {
 
 function MessageActions({ message }: { message: Message }) {
   const user = useQuery(api.functions.user.get);
-  const removeMutation = useMutation(api.functions.message.remove)
+  const removeMutation = useMutation(api.functions.message.remove);
 
   if (!user || message.sender?._id !== user._id) {
     return null;
@@ -53,7 +51,10 @@ function MessageActions({ message }: { message: Message }) {
         <span className="sr-only">Message Actions</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem className="text-destructive" onClick={() => removeMutation({id: message._id})}>
+        <DropdownMenuItem
+          className="text-destructive"
+          onClick={() => removeMutation({ id: message._id })}
+        >
           <Trash2Icon />
           Delete
         </DropdownMenuItem>
@@ -69,6 +70,7 @@ function MessageInput({
 }) {
   const [content, setContent] = useState("");
   const sendMessage = useMutation(api.functions.message.create);
+  const sendTypingIndicator = useMutation(api.functions.typing.upsert);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -88,6 +90,11 @@ function MessageInput({
         placeholder="Message..."
         value={content}
         onChange={(e) => setContent(e.target.value)}
+        onKeyDown={(e) => {
+          if (content.length > 0) {
+            sendTypingIndicator({ directMessage });
+          }
+        }}
       />
       <Button size="icon">
         <SendHorizonalIcon />
@@ -96,6 +103,25 @@ function MessageInput({
     </form>
   );
 }
+
+function TypingIndicator({
+  directMessage,
+}: {
+  directMessage: Id<"directMessages">;
+}) {
+  const usernames = useQuery(api.functions.typing.list, { directMessage });
+  if (!usernames || usernames.length === 0) {
+    return null;
+  
+  }
+  return (
+    <div className="text-sm text-muted-foreground px-4 py-2">
+      {usernames.join(", ")} typing...
+    </div>
+  )
+}
+
+type Message = FunctionReturnType<typeof api.functions.message.list>[number];
 
 export default function MessagePage({
   params,
@@ -124,6 +150,7 @@ export default function MessagePage({
           <MessageItem key={message._id} message={message} />
         ))}
       </ScrollArea>
+      <TypingIndicator directMessage={id}/>
       <MessageInput directMessage={id} />
     </div>
   );
