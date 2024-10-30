@@ -50,6 +50,9 @@ export const create = authenticatedMutation({
     if (!member) {
       throw new Error("You are not a member of this direct message");
     }
+    //No empty messages
+    if(content.length === 0) return;
+
     await ctx.db.insert("messages", {
       content,
       directMessage,

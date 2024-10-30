@@ -69,7 +69,12 @@ export const remove = internalMutation({
         q.eq("user", user).eq("directMessage", directMessage)
       )
       .unique();
-    if (existing && (!expiresAt || existing.expiresAt === expiresAt) || (directMessage.length !== 0)) {
+    //if user stops typing, or they finish their text, or they delete
+    //all of the content, typing indicator will disappera
+    if (
+      (existing && (!expiresAt || existing.expiresAt === expiresAt)) ||
+      directMessage.length !== 0
+    ) {
       await ctx.db.delete(existing!._id);
     }
   },
