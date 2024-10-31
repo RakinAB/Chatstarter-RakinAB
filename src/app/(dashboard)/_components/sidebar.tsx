@@ -10,20 +10,19 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
+  SidebarMenuItem
 } from "@/components/ui/sidebar";
 import { SignOutButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
-import { PlusIcon, User2Icon } from "lucide-react";
+import { User2Icon } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
 import { NewDirectMessage } from "./new-direct-message";
-import { usePathname } from "next/navigation";
 
 
 export function DashboardSidebar() {
