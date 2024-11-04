@@ -38,7 +38,7 @@ function MessageItem({ message }: { message: Message }) {
         </p>
         {message.deleted ? (
           <p className="text-sm text-destructive">
-            This message was deleted.
+            This message was deleted. 
             {message.deletedReason && (
               <span>
                 Reason: {message.deletedReason}
