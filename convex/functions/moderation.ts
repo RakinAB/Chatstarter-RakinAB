@@ -8,7 +8,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 
 const groq = new Groq({
-  apiKey: "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",
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 export const run = internalAction({
