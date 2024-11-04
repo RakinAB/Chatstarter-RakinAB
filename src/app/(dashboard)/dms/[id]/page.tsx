@@ -16,7 +16,7 @@ import {
 import {
   Loader2,
   MoreVerticalIcon,
-  PlusCircleIcon,
+  PlusIcon,
   SendHorizonalIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -36,15 +36,28 @@ function MessageItem({ message }: { message: Message }) {
         <p className="text-xs text-muted-foreground">
           {message.sender?.username ?? "Deleted User"}
         </p>
-        <p className="text-sm">{message.content}</p>
-        {message.attachment && (
-          <Image
-            src={message.attachment}
-            width={300}
-            height={300}
-            alt="Attatchment"
-            className="rounded-border overflow-hidden"
-          />
+        {message.deleted ? (
+          <p className="text-sm text-destructive">
+            This message was deleted.
+            {message.deletedReason && (
+              <span>
+                Reason: {message.deletedReason}
+              </span>
+            )}
+          </p>
+        ) : (
+          <>
+            <p className="text-sm">{message.content}</p>
+            {message.attachment && (
+              <Image
+                src={message.attachment}
+                width={300}
+                height={300}
+                alt="Attatchment"
+                className="rounded border overflow-hidden"
+              />
+            )}
+          </>
         )}
       </div>
       <MessageActions message={message} />
@@ -93,6 +106,7 @@ function MessageInput({
   const generateUploadURL = useMutation(
     api.functions.message.generateUploadURL
   );
+  const removeAttachment = useMutation(api.functions.storage.remove);
   const [attachment, setAttachment] = useState<Id<"_storage">>();
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -117,7 +131,7 @@ function MessageInput({
       await sendMessage({ directMessage, attachment, content });
       setContent("");
       setAttachment(undefined);
-      setFile(undefined)
+      setFile(undefined);
     } catch (error) {
       toast.error("Failed to send DM", {
         description:
@@ -128,8 +142,19 @@ function MessageInput({
   return (
     <>
       <form className="flex items-end p-4 gap-2" onSubmit={handleSubmit}>
-        <div className="flex flex-col flex-1 gap-2" >
-          {file && <ImagePreview file={file} isUploading={isUploading} />}
+        <div className="flex flex-col flex-1 gap-2">
+          {file && (
+            <ImagePreview
+              file={file}
+              isUploading={isUploading}
+              onDelete={() => {
+                if (attachment) removeAttachment({ storageId: attachment });
+                setAttachment(undefined);
+                setFile(undefined);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            />
+          )}
           <Input
             placeholder="Message..."
             value={content}
@@ -148,7 +173,7 @@ function MessageInput({
             fileInputRef.current?.click();
           }}
         >
-          <PlusCircleIcon />
+          <PlusIcon />
           <span className="sr-only"></span>
         </Button>
 
@@ -170,24 +195,35 @@ function MessageInput({
 function ImagePreview({
   file,
   isUploading,
+  onDelete,
 }: {
   file: File;
   isUploading: boolean;
+  onDelete: () => void;
 }) {
   return (
-    <div className="relative">
+    <div className="relative size-40 overflow-hidden rounded border group">
       <Image
         src={URL.createObjectURL(file)}
         width={300}
         height={300}
         alt="Attatchment"
-        className="rounded border overflow-hidden"
       />
       {isUploading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/50">
           <Loader2 className="animate-spin size-8" />
         </div>
       )}
+      <Button
+        className="absolute top-2 right-2 group-hover:opacity-100 opacity-0 transition-opacity"
+        variant={"destructive"}
+        size={"icon"}
+        type="button"
+        onClick={onDelete}
+      >
+        <Trash2Icon />
+        <span className="sr-only">Delete</span>
+      </Button>
     </div>
   );
 }
@@ -198,7 +234,7 @@ function TypingIndicator({
   directMessage: Id<"directMessages">;
 }) {
   const usernames = useQuery(api.functions.typing.list, { directMessage });
-  if (!usernames || usernames.length === 0 ) {
+  if (!usernames || usernames.length === 0) {
     return null;
   }
   return (

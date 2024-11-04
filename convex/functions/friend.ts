@@ -68,8 +68,8 @@ export const updateStatus = authenticatedMutation({
     if (!friend) {
       throw new Error("Friend Not Found");
     }
-    if(friend.user1 !== ctx.user._id && friend.user2 !== ctx.user._id){
-        throw new Error("Unauthorized")
+    if (friend.user1 !== ctx.user._id && friend.user2 !== ctx.user._id) {
+      throw new Error("Unauthorized");
     }
     await ctx.db.patch(id, { status });
   },
